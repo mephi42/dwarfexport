@@ -1,0 +1,32 @@
+.PHONY: all
+all: bin/dwarfexport64.dll
+
+deps/libdwarf/configure:
+	git clone https://github.com/davea42/libdwarf-code.git deps/libdwarf
+	cd deps/libdwarf && git checkout 988618dc8be8
+
+deps/libelf-0.8.13/configure:
+	curl https://fossies.org/linux/misc/old/libelf-0.8.13.tar.gz | \
+		tar -C deps -xz
+
+deps/msvc-wine/Dockerfile:
+	git clone https://github.com/mstorsjo/msvc-wine.git deps/msvc-wine
+	cd deps/msvc-wine && git checkout 34d9736591b6
+
+iidfile: deps/msvc-wine/Dockerfile
+	docker build --iidfile=$@ deps/msvc-wine
+
+bin/dwarfexport64.dll: \
+		deps/libdwarf/configure \
+		deps/libelf-0.8.13/configure \
+		iidfile
+	docker run \
+		--interactive \
+		--tty \
+		--rm \
+		--volume="$(PWD):$(PWD)" \
+		--volume="$(IDA_PATH)":/ida \
+		--volume="$(IDASDK_PATH)":/idasdk \
+		--workdir="$(PWD)" \
+		$(shell cat iidfile) \
+		bash -c 'export PATH=/opt/msvc/bin/x64:$$PATH && exec nmake /f Makefile.MSVC IDA_PATH=z:\\ida IDASDK_PATH=z:\\idasdk PLATFORM=x64'
