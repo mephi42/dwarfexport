@@ -1,10 +1,9 @@
+Disclaimer
+==========
 
-This Project is Unmaintained
-============================
-
-Due to a change in occupation, I no longer have access to IDA, so this project is 
-unmaintained. If you are interested in becoming a maintainer, please let me know. 
-Otherwise, it is unlikely I'll will merge anything but trivial merge requests.
+This is my personal fork of the no longer maintained
+https://github.com/ALSchwalm/dwarfexport. Buyer beware. Binaries can be found
+[here](https://github.com/mephi42/dwarfexport/releases).
 
 dwarfexport
 ===========
