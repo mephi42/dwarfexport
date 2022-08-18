@@ -843,6 +843,7 @@ bool idaapi run(size_t) {
   } catch (...) {
     warning("A dwarfexport error occurred");
   }
+  return true;
 }
 
 plugin_t PLUGIN = {
