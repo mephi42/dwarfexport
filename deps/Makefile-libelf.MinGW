@@ -1,0 +1,79 @@
+include ../MinGW.mk
+
+SRC=libelf-$(LIBELF_VERSION)
+
+CFLAGS=$(COMMONCFLAGS) -DHAVE_CONFIG_H -Ilibelf-helpers -I$(SRC)/lib
+
+SRCS= \
+	$(SRC)/lib/begin.c \
+	$(SRC)/lib/cntl.c \
+	$(SRC)/lib/end.c \
+	$(SRC)/lib/errmsg.c \
+	$(SRC)/lib/errno.c \
+	$(SRC)/lib/fill.c \
+	$(SRC)/lib/flag.c \
+	$(SRC)/lib/getarhdr.c \
+	$(SRC)/lib/getarsym.c \
+	$(SRC)/lib/getbase.c \
+	$(SRC)/lib/getdata.c \
+	$(SRC)/lib/getident.c \
+	$(SRC)/lib/getscn.c \
+	$(SRC)/lib/hash.c \
+	$(SRC)/lib/kind.c \
+	$(SRC)/lib/ndxscn.c \
+	$(SRC)/lib/newdata.c \
+	$(SRC)/lib/newscn.c \
+	$(SRC)/lib/next.c \
+	$(SRC)/lib/nextscn.c \
+	$(SRC)/lib/rand.c \
+	$(SRC)/lib/rawdata.c \
+	$(SRC)/lib/rawfile.c \
+	$(SRC)/lib/strptr.c \
+	$(SRC)/lib/update.c \
+	$(SRC)/lib/version.c \
+	$(SRC)/lib/checksum.c \
+	$(SRC)/lib/getaroff.c \
+	$(SRC)/lib/32.fsize.c \
+	$(SRC)/lib/32.getehdr.c \
+	$(SRC)/lib/32.getphdr.c \
+	$(SRC)/lib/32.getshdr.c \
+	$(SRC)/lib/32.newehdr.c \
+	$(SRC)/lib/32.newphdr.c \
+	$(SRC)/lib/32.xlatetof.c \
+	$(SRC)/lib/cook.c \
+	$(SRC)/lib/data.c \
+	$(SRC)/lib/input.c \
+	$(SRC)/lib/assert.c \
+	$(SRC)/lib/nlist.c \
+	$(SRC)/lib/opt.delscn.c \
+	$(SRC)/lib/x.remscn.c \
+	$(SRC)/lib/x.movscn.c \
+	$(SRC)/lib/x.elfext.c \
+	$(SRC)/lib/64.xlatetof.c \
+	$(SRC)/lib/gelfehdr.c \
+	$(SRC)/lib/gelfphdr.c \
+	$(SRC)/lib/gelfshdr.c \
+	$(SRC)/lib/gelftrans.c \
+	$(SRC)/lib/swap64.c \
+	$(SRC)/lib/verdef_32_tof.c \
+	$(SRC)/lib/verdef_32_tom.c \
+	$(SRC)/lib/verdef_64_tof.c \
+	$(SRC)/lib/verdef_64_tom.c
+
+OBJS=$(SRCS:.c=$(OBJSUFFIX))
+
+.PHONY: all
+all: lib/libelf$(LIBSUFFIX)
+
+$(SRCS):
+	curl -L https://fossies.org/linux/misc/old/$(SRC).tar.gz | tar -xz
+
+%$(OBJSUFFIX): %.c
+	$(CC) -c $(CFLAGS) -o $@ $<
+
+lib/libelf$(LIBSUFFIX): $(OBJS)
+	$(AR) r $@ $(OBJS)
+
+.PHONY: clean
+clean:
+	$(RM) $(OBJS) lib/libelf$(LIBSUFFIX)

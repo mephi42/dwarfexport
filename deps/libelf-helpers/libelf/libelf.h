@@ -1,1 +1,1 @@
-#include "..\libelf-0.8.13\lib\libelf.h"
+#include "../libelf-0.8.13/lib/libelf.h"

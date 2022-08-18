@@ -1,0 +1,95 @@
+include ../MinGW.mk
+
+SOURCE=davea42-libdwarf-code-$(LIBDWARF_VERSION)
+
+CFLAGS=$(COMMONCFLAGS) -DHAVE_CONFIG_H -Ilibdwarf-helpers -I$(SOURCE)/libdwarf
+
+SOURCES= \
+	$(SOURCE)/libdwarf/dwarf_abbrev.c \
+	$(SOURCE)/libdwarf/dwarf_alloc.c \
+	$(SOURCE)/libdwarf/dwarf_arange.c \
+	$(SOURCE)/libdwarf/dwarf_debuglink.c \
+	$(SOURCE)/libdwarf/dwarf_die_deliv.c \
+	$(SOURCE)/libdwarf/dwarf_dnames.c \
+	$(SOURCE)/libdwarf/dwarf_dsc.c \
+	$(SOURCE)/libdwarf/dwarf_elf_access.c \
+	$(SOURCE)/libdwarf/dwarf_elf_load_headers.c \
+	$(SOURCE)/libdwarf/dwarf_elfread.c \
+	$(SOURCE)/libdwarf/dwarf_elf_rel_detector.c \
+	$(SOURCE)/libdwarf/dwarf_error.c \
+	$(SOURCE)/libdwarf/dwarf_form.c \
+	$(SOURCE)/libdwarf/dwarf_frame.c \
+	$(SOURCE)/libdwarf/dwarf_frame2.c \
+	$(SOURCE)/libdwarf/dwarf_funcs.c \
+	$(SOURCE)/libdwarf/dwarf_gdbindex.c \
+	$(SOURCE)/libdwarf/dwarf_generic_init.c \
+	$(SOURCE)/libdwarf/dwarf_global.c \
+	$(SOURCE)/libdwarf/dwarf_groups.c \
+	$(SOURCE)/libdwarf/dwarf_harmless.c \
+	$(SOURCE)/libdwarf/dwarf_init_finish.c \
+	$(SOURCE)/libdwarf/dwarf_leb.c \
+	$(SOURCE)/libdwarf/dwarf_line.c \
+	$(SOURCE)/libdwarf/dwarf_loc.c \
+	$(SOURCE)/libdwarf/dwarf_machoread.c \
+	$(SOURCE)/libdwarf/dwarf_macro.c \
+	$(SOURCE)/libdwarf/dwarf_macro5.c \
+	$(SOURCE)/libdwarf/dwarf_names.c \
+	$(SOURCE)/libdwarf/dwarf_object_detector.c \
+	$(SOURCE)/libdwarf/dwarf_object_read_common.c \
+	$(SOURCE)/libdwarf/dwarf_original_elf_init.c \
+	$(SOURCE)/libdwarf/dwarf_peread.c \
+	$(SOURCE)/libdwarf/dwarf_print_lines.c \
+	$(SOURCE)/libdwarf/dwarf_pubtypes.c \
+	$(SOURCE)/libdwarf/dwarf_query.c \
+	$(SOURCE)/libdwarf/dwarf_ranges.c \
+	$(SOURCE)/libdwarf/dwarf_str_offsets.c \
+	$(SOURCE)/libdwarf/dwarfstring.c \
+	$(SOURCE)/libdwarf/dwarf_stringsection.c \
+	$(SOURCE)/libdwarf/dwarf_tied.c \
+	$(SOURCE)/libdwarf/dwarf_tsearchhash.c \
+	$(SOURCE)/libdwarf/dwarf_types.c \
+	$(SOURCE)/libdwarf/dwarf_util.c \
+	$(SOURCE)/libdwarf/dwarf_vars.c \
+	$(SOURCE)/libdwarf/dwarf_weaks.c \
+	$(SOURCE)/libdwarf/dwarf_xu_index.c \
+	$(SOURCE)/libdwarf/malloc_check.c \
+	$(SOURCE)/libdwarf/pro_alloc.c \
+	$(SOURCE)/libdwarf/pro_arange.c \
+	$(SOURCE)/libdwarf/pro_die.c \
+	$(SOURCE)/libdwarf/pro_dnames.c \
+	$(SOURCE)/libdwarf/pro_encode_nm.c \
+	$(SOURCE)/libdwarf/pro_error.c \
+	$(SOURCE)/libdwarf/pro_expr.c \
+	$(SOURCE)/libdwarf/pro_finish.c \
+	$(SOURCE)/libdwarf/pro_forms.c \
+	$(SOURCE)/libdwarf/pro_frame.c \
+	$(SOURCE)/libdwarf/pro_funcs.c \
+	$(SOURCE)/libdwarf/pro_init.c \
+	$(SOURCE)/libdwarf/pro_line.c \
+	$(SOURCE)/libdwarf/pro_log_extra_flag_strings.c \
+	$(SOURCE)/libdwarf/pro_macinfo.c \
+	$(SOURCE)/libdwarf/pro_pubnames.c \
+	$(SOURCE)/libdwarf/pro_reloc.c \
+	$(SOURCE)/libdwarf/pro_reloc_stream.c \
+	$(SOURCE)/libdwarf/pro_reloc_symbolic.c \
+	$(SOURCE)/libdwarf/pro_section.c \
+	$(SOURCE)/libdwarf/pro_types.c \
+	$(SOURCE)/libdwarf/pro_vars.c \
+	$(SOURCE)/libdwarf/pro_weaks.c
+
+OBJECTS=$(SOURCES:.c=$(OBJSUFFIX))
+
+.PHONY: all
+all: lib/libdwarf$(LIBSUFFIX)
+
+$(SOURCES):
+	curl -L https://github.com/davea42/libdwarf-code/tarball/$(LIBDWARF_VERSION) | tar -xz
+
+%$(OBJSUFFIX): %.c
+	$(CC) -c $(CFLAGS) -o $@ $<
+
+lib/libdwarf$(LIBSUFFIX): $(OBJECTS)
+	$(AR) r $@ $(OBJECTS)
+
+clean:
+	$(RM) $(OBJECTS) lib/libdwarf$(LIBSUFFIX)

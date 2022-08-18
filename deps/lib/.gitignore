@@ -1,0 +1,4 @@
+libdwarf.lib
+libdwarf64.lib
+libelf.lib
+libelf64.lib

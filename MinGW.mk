@@ -1,0 +1,29 @@
+PLATFORM?=x64
+ifeq ($(PLATFORM), x86)
+OBJSUFFIX=.obj32
+LIBSUFFIX=.lib
+DLLSUFFIX=.dll
+IDALIB=x86_win_vc_32/ida.lib
+IDACXXFLAGS=-D__X86__
+GCCLIKECFLAGS=-m32
+else ifeq ($(PLATFORM), x64)
+OBJSUFFIX=.obj64
+LIBSUFFIX=64.lib
+DLLSUFFIX=64.dll
+IDALIB=x64_win_vc_64/ida.lib
+IDACXXFLAGS=-D__X64__ -D__EA64__
+GCCLIKECFLAGS=
+else
+$(error Unsupported platform)
+endif
+
+CC=x86_64-w64-mingw32-gcc
+CXX=x86_64-w64-mingw32-g++
+AR=x86_64-w64-mingw32-ar
+LD=x86_64-w64-mingw32-ld
+LDFLAGS=-static-libgcc -static-libstdc++
+RM=rm
+COMMONCFLAGS=-O2 -g $(GCCLIKECFLAGS)
+COMMONCXXFLAGS=$(COMMONCFLAGS)
+LIBDWARF_VERSION=988618d
+LIBELF_VERSION=0.8.13

@@ -1,1 +1,1 @@
-#include "..\sys_elf.h"
+#include "../sys_elf.h"

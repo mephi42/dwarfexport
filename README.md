@@ -84,6 +84,17 @@ dwarfexport> nmake /f Makefile.MSVC IDA_PATH="C:\Program Files\IDA 7.2" IDASDK_P
 32-bit version will be placed into `bin\dwarfexport.dll`, 64-bit version will
 be placed into `bin\dwarfexport64.dll`.
 
+Building on Linux for Windows
+-----------------------------
+
+```
+$ make -f Makefile.MinGW \
+      IDA_PATH=~/".wine/drive_c/Program Files/IDA 7.2" \
+      IDASDK_PATH=~/".wine/drive_c/Program Files/IDA 7.2/sdk"
+```
+
+This will build a 64-bit version by default. Pass `PLATFORM=x86` to get a
+32-bit version.
 
 Building on macOS
 -----------------

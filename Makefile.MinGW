@@ -1,0 +1,43 @@
+include MinGW.mk
+
+CXXFLAGS= \
+	$(COMMONCXXFLAGS) \
+	$(IDACXXFLAGS) \
+	-D__NT__ \
+	-DUSE_STANDARD_FILE_FUNCTIONS \
+	-I"$(IDASDK_PATH)"/include \
+	-I"$(IDA_PATH)"/plugins/hexrays_sdk/include \
+	-Ideps/libdwarf-helpers \
+	-Ideps/davea42-libdwarf-code-$(LIBDWARF_VERSION)/libdwarf \
+	-Ideps/libelf-helpers \
+	-Ideps/libelf-$(LIBELF_VERSION)/lib
+
+OBJECTS= \
+	src/dwarfexport$(OBJSUFFIX) \
+	src/dwarfgen$(OBJSUFFIX) \
+	src/platform$(OBJSUFFIX)
+
+all: bin/dwarfexport$(DLLSUFFIX)
+
+bin/dwarfexport$(DLLSUFFIX): \
+		$(OBJECTS) \
+		deps/lib/libdwarf$(LIBSUFFIX) \
+		deps/lib/libelf$(LIBSUFFIX)
+	$(CXX) -shared $(LDFLAGS) -o $@ $(OBJECTS) \
+		deps/lib/libdwarf$(LIBSUFFIX) \
+		deps/lib/libelf$(LIBSUFFIX) \
+		"$(IDASDK_PATH)/lib/$(IDALIB)"
+
+deps/lib/libdwarf$(LIBSUFFIX): deps/Makefile-libdwarf.MinGW
+	cd deps && $(MAKE) -f Makefile-libdwarf.MinGW
+
+deps/lib/libelf$(LIBSUFFIX): deps/Makefile-libelf.MinGW
+	cd deps && $(MAKE) -f Makefile-libelf.MinGW
+
+%$(OBJSUFFIX): %.cpp deps/lib/libdwarf$(LIBSUFFIX) deps/lib/libelf$(LIBSUFFIX)
+	$(CXX) -c $(CXXFLAGS) -o $@ $<
+
+clean:
+	$(RM) $(OBJECTS) bin/dwarfexport$(DLLSUFFIX)
+	cd deps && $(MAKE) -f Makefile-libdwarf.MinGW clean
+	cd deps && $(MAKE) -f Makefile-libelf.MinGW clean
