@@ -62,14 +62,14 @@ Building On Windows
 
 Windows build can be performed using MSVC Compiler (cl.exe) and NMAKE
 (nmake.exe). First, download and extract [libdwarf](
-https://sourceforge.net/p/libdwarf/code/ci/master/tree/) source code into
+https://github.com/davea42/libdwarf-code) source code into
 `deps/libdwarf` and [libelf](
 https://fossies.org/linux/misc/old/libelf-0.8.13.tar.gz/) source code into
 `deps/libelf-0.8.13`. The commands below assume WSL/MinGW/Cygwin, but you can
 use any other method that you prefer.
 
 ```
-$ git clone git://git.code.sf.net/p/libdwarf/code deps/libdwarf
+$ git clone https://github.com/davea42/libdwarf-code.git deps/libdwarf
 $ (cd deps/libdwarf && git checkout 988618dc8be8)
 $ curl https://fossies.org/linux/misc/old/libelf-0.8.13.tar.gz | tar -C deps -xz
 ```
