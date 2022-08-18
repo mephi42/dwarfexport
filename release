@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e -u -x
+
+tag=$(git describe --exact-match --tags)
+[ "${tag:0:1}" == "v" ] || exit 1
+
+git push origin "$tag"
+gh release create \
+    --notes "" \
+    "$tag" \
+    bin/dwarfexport64.dll
