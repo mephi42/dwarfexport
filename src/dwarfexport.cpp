@@ -494,11 +494,20 @@ static void add_decompiler_func_info(std::shared_ptr<DwarfGenInfo> info,
       // to a multi-line function call were not correctly handled.
       ea_t expr_lowest_addr = addr, expr_highest_addr = addr;
       if (eamap.count(addr)) {
-        const auto &expr_areaset = bounds.at(eamap.at(addr).at(0));
+        const cinsnptrvec_t &insns = eamap.at(addr);
 
-        // TODO: the area set may not be sorted this way
-        expr_lowest_addr = expr_areaset.getrange(0).start_ea;
-        expr_highest_addr = expr_areaset.lastrange().end_ea - 1;
+        if (!insns.empty()) {
+          cinsn_t *insn = insns.at(0);
+
+          auto it = bounds.find(insn);
+          if (it != bounds.end()) {
+            const rangeset_t &expr_areaset = it->second;
+
+            // TODO: the area set may not be sorted this way
+            expr_lowest_addr = expr_areaset.getrange(0).start_ea;
+            expr_highest_addr = expr_areaset.lastrange().end_ea - 1;
+          }
+        }
       }
 
       // In some situations, there are multiple lines that have the same
