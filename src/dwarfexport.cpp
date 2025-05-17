@@ -11,7 +11,6 @@
 #include <range.hpp>
 #include <segment.hpp>
 #include <string>
-#include <struct.hpp>
 
 #include "dwarfexport.h"
 
@@ -73,9 +72,9 @@ static Dwarf_P_Die add_struct_type(Dwarf_P_Debug dbg, Dwarf_P_Die cu,
   dwarfexport_log("  Member Count = ", member_count);
 
   for (int i = 0; i < member_count; ++i) {
-    udt_member_t member;
+    udm_t member;
     member.offset = i;
-    type.find_udt_member(&member, STRMEM_INDEX);
+    type.get_udm(&member, STRMEM_INDEX);
     auto member_type = member.type;
     auto member_die =
         dwarf_new_die(dbg, DW_TAG_member, die, NULL, NULL, NULL, &err);
@@ -98,7 +97,7 @@ static Dwarf_P_Die add_struct_type(Dwarf_P_Debug dbg, Dwarf_P_Die cu,
     // Add member location in struct
     Dwarf_P_Expr loc_expr = dwarf_new_expr(dbg, &err);
     if (dwarf_add_expr_gen(loc_expr, DW_OP_plus_uconst, member.offset / 8, 0,
-                           &err) == DW_DLV_NOCOUNT) {
+                           &err) == (Dwarf_Unsigned)DW_DLV_NOCOUNT) {
       dwarfexport_error("dwarf_add_expr_gen failed: ", dwarf_errmsg(err));
     }
 
@@ -331,7 +330,7 @@ static Dwarf_P_Die add_variable(Dwarf_P_Debug dbg, Dwarf_P_Die cu,
 
       Dwarf_P_Expr loc_expr = dwarf_new_expr(dbg, &err);
       if (dwarf_add_expr_gen(loc_expr, DW_OP_regx, reg_num, 0, &err) ==
-          DW_DLV_NOCOUNT) {
+          (Dwarf_Unsigned)DW_DLV_NOCOUNT) {
         dwarfexport_error("dwarf_add_expr_gen failed: ", dwarf_errmsg(err));
       }
       if (dwarf_add_AT_location_expr(dbg, die, DW_AT_location, loc_expr,
@@ -357,46 +356,45 @@ static void add_disassembler_func_info(std::shared_ptr<DwarfGenInfo> info,
   auto dbg = info->dbg;
   Dwarf_Error err = 0;
 
-  auto frame = get_frame(func);
-  if (frame == nullptr) {
+  tinfo_t frame;
+  if (!frame.get_func_frame(func)) {
+    return;
+  }
+  udt_type_data_t frame_details;
+  if (!frame.get_udt_details(&frame_details)) {
     return;
   }
 
-  for (std::size_t i = 0; i < frame->memqty; ++i) {
-    auto name = get_member_name(frame->members[i].id);
+  for (std::size_t i = 0; i < frame_details.size(); ++i) {
+    udm_t *member = &frame_details[i];
+    qstring *name = &member->name;
 
     // Ignore these special 'variables'
-    if (name == " s" || name == " r") {
+    if (*name == " s" || *name == " r") {
       continue;
     }
 
-    dwarfexport_log("Adding local variable: ", &name[0]);
+    dwarfexport_log("Adding local variable: ", name->c_str());
 
     Dwarf_P_Die die;
     die = dwarf_new_die(dbg, DW_TAG_variable, func_die, NULL, NULL, NULL, &err);
 
-    if (dwarf_add_AT_name(die, &name[0], &err) == NULL) {
+    if (dwarf_add_AT_name(die, (char *)name->c_str(), &err) == NULL) {
       dwarfexport_error("dwarf_add_AT_name failed: ", dwarf_errmsg(err));
     }
 
     auto loc_expr =
-        disassembler_stack_lvar_location(dbg, func, &frame->members[i]);
+        disassembler_stack_lvar_location(dbg, func, member);
 
     if (loc_expr == nullptr) {
       continue;
     }
 
-    auto member_struct = get_sptr(&frame->members[i]);
-    if (member_struct) {
-      tinfo_t type;
-      if (guess_tinfo(&type, member_struct->id) == GUESS_FUNC_OK) {
-        auto var_type_die = get_or_add_type(dbg, cu, type, record);
-        if (dwarf_add_AT_reference(dbg, die, DW_AT_type, var_type_die, &err) ==
-            nullptr) {
-          dwarfexport_error("dwarf_add_AT_reference failed: ",
-                            dwarf_errmsg(err));
-        }
-      }
+    auto var_type_die = get_or_add_type(dbg, cu, member->type, record);
+    if (dwarf_add_AT_reference(dbg, die, DW_AT_type, var_type_die, &err) ==
+        nullptr) {
+      dwarfexport_error("dwarf_add_AT_reference failed: ",
+                        dwarf_errmsg(err));
     }
 
     if (dwarf_add_AT_location_expr(dbg, die, DW_AT_location, loc_expr, &err) ==
@@ -418,14 +416,12 @@ static void add_disassembler_func_info(std::shared_ptr<DwarfGenInfo> info,
  * @param file An output file stream used for storing the decompiled source
  * @param linecount The current number of lines in 'file'
  * @param file_index The dwarf file index associated with 'cu'
- * @param symbol_index The symbol index associated with the function (unused)
  * @param record The type record to update when adding variable types
  */
 static void add_decompiler_func_info(std::shared_ptr<DwarfGenInfo> info,
                                      Dwarf_P_Die cu, Dwarf_P_Die func_die,
                                      func_t *func, std::ostream &file,
                                      int &linecount, Dwarf_Unsigned file_index,
-                                     Dwarf_Unsigned symbol_index,
                                      type_record_t &record) {
   auto dbg = info->dbg;
   auto err = info->err;
@@ -562,7 +558,7 @@ static Dwarf_P_Die add_function(std::shared_ptr<DwarfGenInfo> info,
   // TODO: what to do for non-bp based frames
   Dwarf_P_Expr loc_expr = dwarf_new_expr(dbg, &err);
   if (dwarf_add_expr_gen(loc_expr, DW_OP_call_frame_cfa, 0, 0, &err) ==
-      DW_DLV_NOCOUNT) {
+      (Dwarf_Unsigned)DW_DLV_NOCOUNT) {
     dwarfexport_error("dwarf_add_expr_gen failed: ", dwarf_errmsg(err));
   }
   if (dwarf_add_AT_location_expr(dbg, die, DW_AT_frame_base, loc_expr, &err) ==
@@ -615,7 +611,7 @@ static Dwarf_P_Die add_function(std::shared_ptr<DwarfGenInfo> info,
                          false, &err);
 
     add_decompiler_func_info(info, cu, die, func, file, linecount, file_index,
-                             0, record);
+                             record);
   } else {
     add_disassembler_func_info(info, cu, die, func, record);
   }
@@ -630,12 +626,10 @@ static Dwarf_P_Die add_function(std::shared_ptr<DwarfGenInfo> info,
  */
 void add_structures(Dwarf_P_Debug dbg, Dwarf_P_Die cu, type_record_t &record) {
   dwarfexport_log("Adding unused types");
-  for (auto idx = get_first_struc_idx(); idx != BADADDR;
-       idx = get_next_struc_idx(idx)) {
-    auto tid = get_struc_by_idx(idx);
+  uint32 limit = get_ordinal_limit();
+  for (uint32 i = 1; i < limit; ++i) {
     tinfo_t type;
-
-    if (guess_tinfo(&type, tid) == GUESS_FUNC_OK) {
+    if (type.get_numbered_type(i)) {
       get_or_add_type(dbg, cu, type, record);
     }
   }
@@ -690,7 +684,8 @@ void add_global_variables(Dwarf_P_Debug dbg, Dwarf_P_Die cu,
 
       // FIXME: this won't work in shared libs
       Dwarf_P_Expr loc_expr = dwarf_new_expr(dbg, &err);
-      if (dwarf_add_expr_addr_b(loc_expr, addr, 0, &err) == DW_DLV_NOCOUNT) {
+      if (dwarf_add_expr_addr_b(loc_expr, addr, 0, &err) ==
+          (Dwarf_Unsigned)DW_DLV_NOCOUNT) {
         dwarfexport_error("dwarf_add_expr_gen failed: ", dwarf_errmsg(err));
       }
       if (dwarf_add_AT_location_expr(dbg, die, DW_AT_location, loc_expr,
@@ -729,7 +724,7 @@ void add_debug_info(std::shared_ptr<DwarfGenInfo> info,
 
   int linecount = 1;
   type_record_t record;
-  auto seg_qty = get_segm_qty();
+  std::size_t seg_qty = get_segm_qty();
   for (std::size_t segn = 0; segn < seg_qty; ++segn) {
     auto seg = getnseg(segn);
     if (seg == nullptr) {
@@ -781,7 +776,7 @@ void add_debug_info(std::shared_ptr<DwarfGenInfo> info,
   add_structures(dbg, cu, record);
 }
 
-int idaapi init(void) {
+static plugmod_t *idaapi init(void) {
   if (init_hexrays_plugin()) {
     msg("dwarfexport: Using decompiler\n");
     has_decompiler = true;
@@ -847,8 +842,7 @@ bool idaapi run(size_t) {
       write_dwarf_file(info, options);
     }
   } catch (const std::exception &e) {
-    std::string msg = "A dwarfexport error occurred: " + std::string(e.what());
-    warning(msg.c_str());
+    warning("A dwarfexport error occurred: %s", e.what());
   } catch (...) {
     warning("A dwarfexport error occurred");
   }

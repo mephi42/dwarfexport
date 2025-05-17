@@ -18,7 +18,7 @@ static int add_section_header_string(Elf *elf, const char *name) {
   static strtabdata strtab;
 
   std::size_t sh_index;
-  if (elf_getshstrndx(elf, &sh_index) == -1) {
+  if (elf_getshdrstrndx(elf, &sh_index) == -1) {
     dwarfexport_error("elf_getshstrndx() failed: ", elf_errmsg(-1));
   }
 
@@ -51,10 +51,10 @@ static int add_section_header_string(Elf *elf, const char *name) {
   return ret;
 }
 
-static int attached_info_callback(const char *name, int size,
+static int attached_info_callback(const char *name, int /* size */,
                                   Dwarf_Unsigned type, Dwarf_Unsigned flags,
                                   Dwarf_Unsigned link, Dwarf_Unsigned info,
-                                  Dwarf_Unsigned *sect_name_symbol_index,
+                                  Dwarf_Unsigned */* sect_name_symbol_index */,
                                   void *userdata, int *) {
   DwarfGenInfo &geninfo = *(DwarfGenInfo *)userdata;
   auto elf = geninfo.elf;
@@ -94,11 +94,13 @@ static int attached_info_callback(const char *name, int size,
 }
 
 static std::vector<std::string> detached_sections;
-static int detached_info_callback(const char *name, int size,
-                                  Dwarf_Unsigned type, Dwarf_Unsigned flags,
-                                  Dwarf_Unsigned link, Dwarf_Unsigned info,
-                                  Dwarf_Unsigned *sect_name_symbol_index,
-                                  void *userdata, int *) {
+static int detached_info_callback(const char *name, int /* size */,
+                                  Dwarf_Unsigned /* type */,
+                                  Dwarf_Unsigned /* flags */,
+                                  Dwarf_Unsigned /* link */,
+                                  Dwarf_Unsigned /* info */,
+                                  Dwarf_Unsigned */* sect_name_symbol_index */,
+                                  void */* userdata */, int *) {
   detached_sections.push_back(name);
   return detached_sections.size() - 1;
 }
@@ -118,7 +120,7 @@ std::shared_ptr<DwarfGenInfo> generate_dwarf_object(const Options &options) {
   const char *isa_name = (info->mode == Mode::BIT32) ? "x86" : "x86_64";
 
   const char *dwarf_version = "V2";
-  int endian = (inf.is_be()) ? DW_DLC_TARGET_BIGENDIAN : DW_DLC_TARGET_LITTLEENDIAN;
+  int endian = inf_is_be() ? DW_DLC_TARGET_BIGENDIAN : DW_DLC_TARGET_LITTLEENDIAN;
   Dwarf_Ptr errarg = 0;
 
   decltype(&attached_info_callback) callback;
@@ -320,7 +322,7 @@ static void generate_copy_with_dbg_info(std::shared_ptr<DwarfGenInfo> info,
   /* Some compilers produce binaries with non-adjacent or overlapping sections,
    * so we cannot use the automatic layout. Suppress it and use the exact
    * layout from the input. */
-  if (elf_flagelf(elf_out, ELF_C_SET, ELF_F_LAYOUT | ELF_F_LAYOUT_OVERLAP) == 0)
+  if (elf_flagelf(elf_out, ELF_C_SET, ELF_F_LAYOUT/* | ELF_F_LAYOUT_OVERLAP */) == 0)
     dwarfexport_error("elf_flagelf failed: ", elf_errmsg(-1));
 
   if (gelf_getehdr(elf_out, &ehdr_out) != &ehdr_out)
@@ -470,7 +472,7 @@ void generate_detached_dbg_info(std::shared_ptr<DwarfGenInfo> info,
     }
 
     // TODO: this is not necessarily an error
-    if (write(fd, bytes, length) != length) {
+    if (write(fd, bytes, length) != (ssize_t)length) {
       dwarfexport_error("write() failed");
     }
   }

@@ -2,7 +2,6 @@
 #include <cstdlib>
 #include <frame.hpp>
 #include <ida.hpp>
-#include <struct.hpp>
 
 #include "dwarfexport.h"
 
@@ -175,7 +174,7 @@ static int translate_i386(int ida_reg_num) {
       EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI,
   };
 
-  if (ida_reg_num <
+  if ((size_t)ida_reg_num <
       sizeof(low_number_mapping) / sizeof(low_number_mapping[0])) {
     return low_number_mapping[ida_reg_num];
   } else {
@@ -228,7 +227,7 @@ static int translate_arm(int ida_reg_num) {
 
   int low_number_mapping[] = {R0, R1,  R2,  R3,  R4, R5, R6, R7,  R8,
                               R9, R10, R11, R12, SP, LR, PC, CPSR};
-  if (ida_reg_num <
+  if ((size_t)ida_reg_num <
       sizeof(low_number_mapping) / sizeof(low_number_mapping[0])) {
     return low_number_mapping[ida_reg_num];
   } else {
@@ -242,50 +241,51 @@ int translate_register_num(int ida_reg_num) {
     return -1;
   }
 
-  switch (ph.id) {
+  switch (get_ph()->id) {
   case PLFM_386:
-    return (inf.is_64bit()) ? translate_amd64(reg_num)
+    return (inf_is_64bit()) ? translate_amd64(reg_num)
                             : translate_i386(reg_num);
   case PLFM_ARM:
-    return (inf.is_64bit()) ? -1 : translate_arm(reg_num);
+    return (inf_is_64bit()) ? -1 : translate_arm(reg_num);
   default:
     return -1;
   }
 }
 
-static bool disassembler_lvar_reg_and_offset(func_t *func, member_t *member,
+static bool disassembler_lvar_reg_and_offset(func_t *func, udm_t *member,
                                              int *reg, int *offset);
 static bool decompiler_lvar_reg_and_offset(cfuncptr_t cfunc, const lvar_t &var,
                                            int *reg, int *offset) {
   // FIXME: Due to current IDA limitations, stkoff may not always return a
   //        useful value: https://forum.hex-rays.com/viewtopic.php?f=4&t=4154
-  switch (ph.id) {
+  switch (get_ph()->id) {
   case PLFM_386:
-    if (inf.is_64bit()) {
+    if (inf_is_64bit()) {
       *reg = DW_OP_breg7; // rsp
       *offset = var.location.stkoff();
     } else {
       // On 32bit intel, just use the disassembler logic
       auto func = get_func(cfunc->entry_ea);
-      auto frame = get_frame(func);
-      if (frame == nullptr) {
+      tinfo_t frame;
+      if (!frame.get_func_frame(func)) {
         return false;
       }
 
-      auto member = get_member_by_name(frame, &var.name[0]);
-      if (member == nullptr) {
+      udm_t member;
+      if (frame.get_udm(&member, &var.name[0]) == -1) {
         return false;
       }
-      return disassembler_lvar_reg_and_offset(func, member, reg, offset);
+      return disassembler_lvar_reg_and_offset(func, &member, reg, offset);
     }
     return true;
   case PLFM_ARM:
-    if (inf.is_64bit()) {
+    if (inf_is_64bit()) {
       return false;
     } else {
       *reg = DW_OP_breg13; // SP
       *offset = var.location.stkoff();
     }
+    return true;
   default:
     return false;
   }
@@ -306,31 +306,34 @@ Dwarf_P_Expr decompiler_stack_lvar_location(Dwarf_P_Debug dbg, cfuncptr_t cfunc,
                   " bytes from register #", stack_reg);
 
   if (dwarf_add_expr_gen(loc_expr, stack_reg, stack_offset, 0, &err) ==
-      DW_DLV_NOCOUNT) {
+      (Dwarf_Unsigned)DW_DLV_NOCOUNT) {
     dwarfexport_error("dwarf_add_expr_gen failed: ", dwarf_errmsg(err));
   }
   return loc_expr;
 }
 
-static bool disassembler_lvar_reg_and_offset(func_t *func, member_t *member,
+static bool disassembler_lvar_reg_and_offset(func_t *func, udm_t *member,
                                              int *reg, int *offset) {
-  switch (ph.id) {
+  switch (get_ph()->id) {
   case PLFM_386:
-    if (inf.is_64bit()) {
+    if (inf_is_64bit()) {
       *reg = DW_OP_breg7; // rsp
-      *offset = member->soff;
+      *offset = member->offset;
     } else {
       *reg = DW_OP_breg5; // ebp
 
-      auto frame = get_frame(func);
-      auto size = get_struc_size(frame->id);
-      auto saved_regs = get_member_by_name(frame, " s");
-      if (saved_regs == nullptr) {
+      tinfo_t frame;
+      if (!frame.get_func_frame(func)) {
         return false;
       }
-      auto saved_regs_off = saved_regs->soff;
+      auto size = frame.get_size();
+      udm_t saved_regs;
+      if (frame.get_udm(&saved_regs, " s") == -1) {
+        return false;
+      }
+      auto saved_regs_off = saved_regs.offset;
       auto s_offset = size - (size - saved_regs_off);
-      int offset_from_base = member->soff - s_offset;
+      int offset_from_base = member->offset - s_offset;
 
       if (offset_from_base > 0) {
         offset_from_base += 16;
@@ -339,19 +342,22 @@ static bool disassembler_lvar_reg_and_offset(func_t *func, member_t *member,
     }
     return true;
   case PLFM_ARM:
-    if (inf.is_64bit()) {
+    if (inf_is_64bit()) {
       return false;
     } else {
       *reg = DW_OP_breg11; // r11
 
-      auto frame = get_frame(func);
-      auto size = get_struc_size(frame->id);
+      tinfo_t frame;
+      if (!frame.get_func_frame(func)) {
+        return false;
+      }
+      auto size = frame.get_size();
 
       // NOTE: This assumes arm saved-registers is always 4 on 32 bit platforms.
       //       Needed because there is no magic ' s' member for arm.
       auto saved_regs_off = size - 4;
       auto s_offset = size - (size - saved_regs_off);
-      int offset_from_base = member->soff - s_offset;
+      int offset_from_base = member->offset - s_offset;
       *offset = offset_from_base;
     }
     return true;
@@ -361,7 +367,7 @@ static bool disassembler_lvar_reg_and_offset(func_t *func, member_t *member,
 }
 
 Dwarf_P_Expr disassembler_stack_lvar_location(Dwarf_P_Debug dbg, func_t *func,
-                                              member_t *member) {
+                                              udm_t *member) {
   Dwarf_Error err = 0;
   Dwarf_P_Expr loc_expr = dwarf_new_expr(dbg, &err);
 
@@ -376,7 +382,7 @@ Dwarf_P_Expr disassembler_stack_lvar_location(Dwarf_P_Debug dbg, func_t *func,
                   " bytes from register #", stack_reg);
 
   if (dwarf_add_expr_gen(loc_expr, stack_reg, stack_offset, 0, &err) ==
-      DW_DLV_NOCOUNT) {
+      (Dwarf_Unsigned)DW_DLV_NOCOUNT) {
     dwarfexport_error("dwarf_add_expr_gen failed: ", dwarf_errmsg(err));
   }
 
